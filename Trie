@@ -1,0 +1,301 @@
+import java.lang.String;
+import java.util.*;
+
+
+public class Trie {
+	
+	private int N;          // number of keys in trie
+
+	class Node {
+		private String key;
+	    private int count = -1;
+	    private LinkedList<Node> children;
+	    private LinkedList<Node> pathToRoot;
+        private boolean isLeaf = false;
+        private Node parent = null;
+	        
+	    public Node() {   	
+	    }
+	        
+	    public Node(String s) {
+	    	this.key = s;
+	    }
+	    
+	    public void setCount(int c) {
+	    	this.count = c;
+	    }
+	    public void addChild(Node n) {
+	        if(this.children == null) {
+	        	this.children = new LinkedList<Node>();
+	        }
+	        children.add(n);
+	    }
+	    
+	    public void addToPath(Node n) {
+	    	if(this.pathToRoot == null) this.pathToRoot = new LinkedList<Node>();
+	    	pathToRoot.addFirst(n);
+	    }
+	    
+	    public int getCount() {
+	    	return count;
+	    }
+	        
+	    public Node getNextNode(String s) {
+	        if (children == null) return null;
+            
+	        for (Node child : children) {
+	        	if (child.key == s) return child;
+	        }
+	        
+	        return null;
+	    }
+	        
+	    public List<Node> getChildren() {
+	     	if (this.children == null) return Collections.emptyList();
+	      	
+	       	return children;
+	    }   
+	    
+	    public  LinkedList<String> getStringPath() {
+	    	
+	    	LinkedList<String> path = new LinkedList<String>();
+	    	
+	    	for(Node x: pathToRoot) {
+	    		path.add(x.key);
+	    	}
+	    	return path;
+	    }
+	    
+	    public void printPath() {
+	    	for(Node x: pathToRoot) System.out.print(x.key + "  ");
+	    	System.out.println();
+	    }
+    }
+	    
+	
+	public Trie() {  
+		N = 0;
+    }
+	    
+	Node root = new Node("Root");      // root of trie
+	
+	public int getTrieSize() {
+		return N;
+	}
+	
+	public void put(List<String> candidates) {
+		put(root, candidates);      
+    }
+
+    private void put(Node x, List<String> candidates) {
+    	if(candidates.size() == 0) return;
+    	int i = 0;
+    	Node child = x.getNextNode(candidates.get(i++));
+    	
+    	if(child == null) {
+    		child = new Node(candidates.get(0));
+    		x.addChild(child);
+    		child.parent = x;
+    		N++;
+    	}
+    	
+    	if(candidates.size() == 1) {
+    		child.isLeaf = true;
+    		child.count++;
+    		Node n = child;
+    		while(n != root) {
+    			child.addToPath(n);
+    			n = n.parent;
+    		}
+    	}
+    	
+    	else {
+    		put(child, candidates.subList(i, candidates.size()));
+    	}
+    }
+
+    public void increment(List<String> key) {
+    	Node x = root;
+    	int depth = 0;
+
+    	while(key.size() >= 1 && x.key != key.get(key.size()-1)) {
+    		for(Node n: x.children) {
+    			if(n.key.equals(key.get(depth))) {
+    				depth++;
+    				x = n;
+    				break;
+    			}
+    		}
+    	}  	
+    	x.count++;	
+    }
+	    
+    public Node get(List<String> key) {
+    	Node x = root;
+    	int depth = 0;
+    	
+    	while(key.size() >= 1 && x.key != key.get(key.size()-1)) {
+    		for(Node n: x.children) {
+    			if(n.key.equals(key.get(depth))) {
+    				depth++;
+    				x = n;
+    				break;
+    			}	
+    		}	
+    	} 	
+    	return x;       	
+    }
+    
+    public int size() {
+        return N;
+    }
+
+    //Returns all keys in the symbol table as iterable
+    public List<List<String>> keys() {        
+        List<LinkedList<String>> x = keysWithPrefix(Collections.<String>emptyList());
+        List<List<String>> y = new ArrayList<List<String>>();
+        for(LinkedList<String> s: x) {
+        	List<String> trim = s.subList(1, s.size()); 
+        	LinkedList<String> trim1 = new LinkedList<String>();
+        	for(String string: trim){
+        		trim1.add(string);
+        	}
+        	y.add(trim1);
+        }       
+        return y;
+    }
+	    
+    public static void printKeys(List<List<String>> keys) {
+    	for(List<String> combo: keys) {
+    		for(String s: combo) {
+    			System.out.print(s + "  ");
+    		}
+    		System.out.println();
+    	}
+		System.out.println();
+		System.out.println();
+    }
+   
+    //Returns all of the keys in the set that start with prefix
+    public List<LinkedList<String>> keysWithPrefix(List<String> prefix) { 	
+    	Node x = getNodeForPrefix(root, prefix);
+    	List<LinkedList<String>> results = collect(x);
+    	List<LinkedList<String>> combos = new ArrayList<LinkedList<String>>(results.size());
+    	
+    	for(LinkedList<String> item: results) {
+    		if(prefix.size() == 0) combos.add(combine(Collections.<String>emptyList(), item));
+    		else combos.add(combine(prefix.subList(0, prefix.size()-1), item));
+    	}   	
+    	return combos;   	
+    }
+	    
+    private LinkedList<String> combine(List<String> prefix, LinkedList<String> item) {  	
+    	LinkedList<String> x = new LinkedList<String>(prefix);
+    	for(String s: item) x.add(s);
+    	
+    	return x;   	
+    }
+    
+    private List<LinkedList<String>> collect(Node x) {
+    	List<LinkedList<String>> results = new ArrayList<LinkedList<String>>();
+
+		if(x.isLeaf) {
+			results.add(new LinkedList<String>(Collections.singletonList(x.key)));
+		}
+		List<Node> children = x.getChildren();
+		for(Node child: children) {
+			List<LinkedList<String>> childList = collect(child);
+			for(LinkedList<String> kids: childList) {
+				kids.push(x.key);
+				results.add(kids);
+			}
+    	}
+		
+    	return results;
+    }
+	    
+    private Node getNodeForPrefix(Node x, List<String> prefixCandidates) {
+    if (x == null) return null;
+    if (prefixCandidates.size() == 0) return x;
+   
+    Node next = x.getNextNode(prefixCandidates.get(0));
+    
+    if(next == null) return null;
+    return getNodeForPrefix(next, prefixCandidates.subList(1, prefixCandidates.size()));
+
+    }
+	  
+    public boolean isEmpty() {
+    	//return (Size() == 0);
+    	return (root.children == null);
+    }
+	    
+    public String getKey(Node n) { 
+    	return n.key;
+    }
+	    
+    public LinkedList<Node> getNodePath(Node n) {
+    	
+    	LinkedList<Node> path = new LinkedList<Node>();
+    	
+    	for(Node x: n.pathToRoot) {
+    		path.add(x);
+    	}
+    	
+    	return path;
+    }
+	    
+    public static LinkedList<String> getStringPath(Node n) {
+    	
+    	LinkedList<String> path = new LinkedList<String>();
+    	
+    	for(Node x: n.pathToRoot) {
+    		path.add(x.key);
+    	}
+    	return path;
+    }
+	    
+    public void printPath(Node n) {
+    	for(Node x: n.pathToRoot) System.out.print(x.key + "  ");
+    	System.out.println();
+    }
+	    
+    public LinkedList<Node> getLeafNodes(Node n) {
+    	
+        LinkedList<Node> frequentItemSets = new LinkedList<Node>();
+        
+        if(n.isLeaf) frequentItemSets.add(n);
+        
+        else {	       
+       		for(Node child: n.children) frequentItemSets.addAll(getLeafNodes(child));	
+        }
+        
+        return frequentItemSets;      
+    }
+	        
+    public void pruneTrie(int count) {
+        pruneTrie(root, count);
+    }
+    
+    private void pruneTrie(Node x, int i) {
+    	
+        //candidate is a non-frequent leaf
+    	if (x.isLeaf && x.count < i){
+        	while(x.children == null) {
+        		if(x == root) break;
+        		Node p = x.parent;
+       			p.children.remove(x);
+       			N--;
+       			if(p.children.size() == 0) p.children = null;
+        		x = x.parent;
+           	} 	
+        }
+    	
+    	//candidate is not a leaf
+    	else if(x.children != null) { 
+	       	Object[] children = x.children.toArray();
+	       	for(Object n: children) pruneTrie((Node)n, i);	
+	    }
+	}
+}
+
