@@ -1,0 +1,298 @@
+import java.io.BufferedInputStream;
+import java.io.BufferedWriter;
+import java.io.DataInputStream;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.util.*;
+import java.util.concurrent.*;
+
+/* The program should be executable with 3 parameters: the name of the input 
+dataset file, the threshold of minimum support count, and the name of the output file.  
+The minimum support count should be an integer.  An itemset is frequent if its support 
+count is larger or equal to this threshold. The program should output a file that 
+contains all the frequent itemsets together with their support.  The output file should 
+have the following format: each line contains a single frequent itemset as a list of items 
+separated by whitespace.  At the end of the line, its support is printed between a pair of parenthesis.  
+For example: 1 2 3 (5) represents an itemset containing items 1, 2 and 3 with a support count of 5.
+*/
+
+public class Apriori extends Trie {
+	static Map<Integer, List<String>> database = new Hashtable<Integer, List<String>>();
+
+	
+	public static File apriori(DataInputStream inputFile, int minSupportCount, String outputFile) throws IOException{
+		//path = "http://www.mathcs.emory.edu/~cs378000/share/assignments/assignment2/datasets/T10I4D100K.dat"
+		Map<String, Integer> freqOne = new ConcurrentHashMap<String, Integer>(); 
+		LinkedList<Node> frequentItemSets = new LinkedList<Node>();
+		LinkedList<String> infrequentItems = new LinkedList<String>();
+	
+		int i = 0;
+		String record;
+		int databaseRow = 0;
+		int totalRows = 0;
+		Trie trie = new Trie();
+		
+		//first pass
+		try {
+			while ((record = inputFile.readLine()) != null) {
+				//if(databaseRow>40) break;
+				List<String> items = Arrays.asList(record.split(" "));
+				database.put(databaseRow, items);
+				databaseRow++;
+				
+				
+				for(String s: items) {
+					if(!freqOne.containsKey(s)) freqOne.put(s, 1);
+					else freqOne.put(s, freqOne.get(s) + 1);
+				}	
+				
+			}// end while
+			
+			totalRows = databaseRow;
+			
+			for(String key: freqOne.keySet()) {
+				if(freqOne.get(key) < minSupportCount) {
+					freqOne.remove(key);
+					infrequentItems.add(key);
+				}
+			}
+		}	
+		
+		catch (IOException e) {
+		// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+		List<List<String>> candidates = new ArrayList<List<String>> ();
+		trie = new Trie();
+		
+		for(String key: freqOne.keySet()) {
+			List<String> x = new ArrayList<String>();
+			x.add(key);
+			trie.put(x);
+			candidates.add(x);
+		}
+		
+		if(!trie.isEmpty()) {
+			frequentItemSets.addAll(trie.getLeafNodes(trie.root));
+		}
+
+		
+		
+		//Kth pass
+		candidates = generateCandidates(candidates, 2);
+		for(int count = 3; candidates.size() != 0; count++) { 
+
+			trie = new Trie();
+			i = 0;
+			databaseRow = 0;
+
+			for(List<String> c: candidates) {
+				trie.put(c);
+			}
+			
+			List<List<String>> tempKeys = new ArrayList<List<String>>();
+			
+			for(List<String> key: trie.keys()) {
+				tempKeys.add(key);
+			}
+			
+			while(databaseRow < totalRows) { //change to totalRows
+				
+				reduceCandidates(databaseRow, infrequentItems);
+
+				List<List<String>> keysToRemove = new ArrayList<List<String>>();
+				
+				for(Iterator<List<String>> it = tempKeys.iterator(); it.hasNext();) {
+					List<String> key = it.next();
+					if(database.get(databaseRow) != null && database.get(databaseRow).containsAll(key)) {
+						trie.increment(key);
+						if(trie.get(key).getCount() >= minSupportCount) it.remove();
+					}
+				
+				tempKeys.removeAll(keysToRemove);
+				keysToRemove.clear();
+			
+				}
+				databaseRow++;
+				
+			} // end while
+
+			trie.pruneTrie(minSupportCount);
+			
+			if(!trie.isEmpty()) {
+				frequentItemSets.addAll(trie.getLeafNodes(trie.root));
+			}
+			
+			candidates = generateCandidates(trie.keys(), count);
+		}	
+
+		System.out.println("frequent itemset size is " + frequentItemSets.size());
+		System.out.println("******************TOTAL FREQUENT ITEMS**********************");
+		for(Node N: frequentItemSets) {
+			LinkedList<Node> path = new LinkedList<Node>(trie.getNodePath(N));
+			for(Node n: path) {
+				System.out.print(trie.getKey(n) + "  ");
+			}
+			System.out.println();
+		}
+		
+		frequentItemSets = getFinalList(frequentItemSets, totalRows);
+		
+		File x = createFile(frequentItemSets, outputFile);
+	    return x;
+	}
+	
+	public static LinkedList<Node> getFinalList(List<Node> frequentItemSets, int totalRows) {
+		LinkedList<Node> finalList = new LinkedList<Node>();
+		int databaseRow;
+		
+		for(Node n: frequentItemSets) {
+			databaseRow = 0;
+			int count = 0;
+			n.setCount(count);
+			while(databaseRow < totalRows) {
+				if(database.get(databaseRow) != null && database.get(databaseRow).containsAll(n.getStringPath())) {
+					count++;
+				}
+			databaseRow++;
+			}
+			n.setCount(count);
+			finalList.add(n);
+		}
+
+		return finalList;		
+	}
+	
+	public static File createFile(List<Node> frequentItemset, String outputFileName) {
+		File file = new File(outputFileName);
+		try {	 
+			String content = "";
+  
+			if (!file.exists()) file.createNewFile();
+ 
+			FileWriter fw = new FileWriter(file.getAbsoluteFile());
+			BufferedWriter bw = new BufferedWriter(fw);
+			
+			for(Node n: frequentItemset) {
+				List<String> freqItem = getStringPath(n);
+				for(String s: freqItem) {
+					content += (s + "  ");
+				}
+				content += ("(" + n.getCount() + ")\n");
+			}
+			
+			bw.write(content);
+			bw.close();
+			System.out.println("Done");
+ 
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		return file;
+		
+	}
+	public static List<List<String>> generateCandidates(List<List<String>> keys, int k) {
+		List<List<String>> candidates = new ArrayList<List<String>>();
+		
+		for(int count = 0; count < keys.size(); count++){
+			List<String> a = keys.get(count);
+			for(int count2 = count+1; count2 < keys.size(); count2++) {
+				List<String> b = keys.get(count2);
+				if(a.subList(0, k-2).equals(b.subList(0, k-2))) {
+					List<String> combo = a.subList(0, k-2); 
+					combo.add(a.get(k-2));
+					combo.add(b.get(k-2));
+					List<String> c = new ArrayList<String>();
+					for(String s: combo) c.add(s);
+					Collections.sort(c);
+					candidates.add(c);
+				}	
+			}
+		}	
+		
+		return candidates;
+	}
+	
+	public static void reduceCandidates(int databaseRow, LinkedList<String> infrequentItems) {
+		if(database.get(databaseRow) == null) return;
+		LinkedList<String> row = new LinkedList<String>(database.get(databaseRow));
+
+		for(String s: infrequentItems) {
+			if(row.contains(s)) row.remove(s);					
+		}
+		
+		database.put(databaseRow, row);
+		if(database.get(databaseRow).isEmpty()) database.remove(databaseRow);
+		
+	}
+	
+	public static void main(String[] args) {
+		 
+		Scanner in = new Scanner(System.in);
+		System.out.println("What is the name/path of your input file?");
+		String path = in.nextLine();
+		URL u;
+	    InputStream input = null;
+	    DataInputStream dIS;
+	    String record = null;
+
+		System.out.println("What is the minimum support count?");
+		int supportCount = Integer.parseInt(in.nextLine());
+		
+		System.out.println("What do you want the name of your output file to be?");
+		String output = in.nextLine();
+		System.out.println("Algorithm apriori starting now.....");
+		System.out.println();
+		 
+	    //start time
+	    Date d = new Date();
+	    Long startTime = d.getTime();
+	    
+
+		try {
+	    	 // Create URL                                            
+	         u = new URL(path);  
+	         
+	         // Open an input stream from the url 
+	         input = u.openStream();         
+	 
+	         // Convert the InputStream to a buffered DataInputStream     
+	         dIS = new DataInputStream(new BufferedInputStream(input));   
+	         File outputFile = apriori(dIS, supportCount, output);
+	         //end time
+	         d = new Date();
+	         Long endTime = d.getTime();
+	 	     System.out.println();
+	 	     System.out.println("Execution time is: "+((endTime - startTime)/(double)1000) + " seconds.");
+	 	     
+	      } catch (MalformedURLException x) {
+	 
+	         System.out.println("A MalformedURLException happened.");
+	         x.printStackTrace();
+	         System.exit(1);
+	 
+	      } catch (IOException x) {
+	 
+	         System.out.println("An IOException happened.");
+	         x.printStackTrace();
+	         System.exit(1);
+	 
+	      }	         
+
+	       finally {
+	    	   // Close InputStream
+	    	   try {
+	    		   input.close();
+	    	   } catch (IOException ioe) {
+	            // just going to ignore this one
+	           }
+	 
+	      } // end of 'finally' clause
+	   }  // end of main
+	}
+
