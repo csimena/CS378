@@ -1,0 +1,71 @@
+import java.io.File;
+
+/* Tree is structured in a top-down recursive divide-and-conquer manner
+ * At the start, all of the training examples are at the root
+ * Attributes are categorical or, if continuous-valued, they are discretized in advance
+ * Examples are partitioned recursively based on selected attributes
+ * Test attributes are selected based on a heuristic or statistical measure (e.g., information gain
+ * 
+ * Conditions for stopping partitioning: 
+ * 		All samples for a given node belong to the same class
+ * 		There are no remaining attributes for further partitioning - majority voting is employed for classifying the leaf
+ * 		There are no samples left
+ */
+
+public class DecisionTree {
+	
+	//maybe create a subclass of nodes or something...
+	/*
+	 * Node class contains: classification, array of attributes, 
+	 */
+	private File output;
+	
+	public File getOutputFile() {
+		return output;
+	}
+	
+	public DecisionTree(String train, String test) {
+		//Convert/upload train to whatever object we'll be working with
+		//create root
+		//partition with root
+		//output = classify test data
+	}
+	
+	public /*object*/ convertInput(String train) {
+		// if train is a URL, open the URL and convert to whatever object we'll be working with
+		// if train is a file, open and convert
+		//etc...
+		// return object...
+	}
+	
+	public partition() {
+		/* if all samples for a given node belong to the same class, stop
+		 * else if there are no remaining attributes for further partitioning, stop
+		 * else if there are no samples left, stop
+		 * else recPartition
+		 */
+	}
+	
+	public recPartition() {
+		
+	}
+	
+	public double gainRatio() {
+		
+	}
+	
+	public double informationGain() {
+		double expectedInfo = 0;
+		double info = 0;
+		double infoGained = expectedInfo-info;
+		
+		/* = Info(D) - InfoA(D)
+		 * Info(D) = -sum(
+		 */
+		
+	}
+	
+	public classify() {
+		
+	}
+}
